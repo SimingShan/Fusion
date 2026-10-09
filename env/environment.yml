@@ -1,0 +1,18 @@
+# Pinned environment for the Challenge-1 reproduction package (the environment our members were trained and evaluated in).
+# Python 3.11.14 (conda-forge), CUDA 12.4 / cuDNN 9.1 via the PyTorch wheel.  Full pip freeze: env/pip_freeze_full.txt
+name: fusion-c1-final
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11.14
+  - pip
+  - pip:
+      - --extra-index-url https://download.pytorch.org/whl/cu124
+      - torch==2.5.1+cu124
+      - numpy==1.26.4
+      - scipy==1.17.0
+      - pyarrow==25.0.1
+      - pandas==2.2.2
+      - scikit-image==0.26.0
+      - requests==2.32.5
+      - huggingface_hub==1.31.0

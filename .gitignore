@@ -1,0 +1,15 @@
+data/
+members/
+results/candidates/
+results/prep_logs/
+results/analysis/vessel_196/feats*/
+results/analysis/future_201/feats*/
+results/analysis/scalar_probe_160/*.npy
+results/analysis/scalar_probe_160/*.npz
+results/analysis/scalar_probe_160/direct_vf60/
+results/analysis/ae_ceiling_119/*.pt
+results/analysis/ae_ceiling_119/*.npz
+gpu_timing.json
+__pycache__/
+parquet_data/
+*.pyc

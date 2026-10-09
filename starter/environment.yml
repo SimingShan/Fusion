@@ -1,0 +1,17 @@
+# Conda / mamba environment for the Fusion Equilibrium Challenge starter kit.
+#
+#   mamba env create -f environment.yml
+#   mamba activate fusion-equilibrium-starter
+#
+# PyTorch is installed via pip (requirements-pytorch.txt) so Apple Silicon (MPS)
+# and CUDA wheels resolve correctly from PyPI.
+
+name: fusion-equilibrium-starter
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+      - -r requirements.txt
+      - -r requirements-pytorch.txt

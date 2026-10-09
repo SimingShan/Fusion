@@ -1,0 +1,2 @@
+# PyTorch neural-network baselines (optional — see README).
+torch>=2.0,<2.6
