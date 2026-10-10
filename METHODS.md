@@ -30,11 +30,20 @@ leading 64 coefficients to the higher modes (trained on training flux). Finally,
 (weight clip((psi - psi_b)/(psi_axis - psi_b), 0, 1)), vertically, half-way toward the axis predicted by six direct regressors trained on the
 same inputs; the separatrix is untouched and the shift is skipped on Thomson-poor frames.
 
+Next, the elongation is corrected. Each member's own map gives its own kappa (the scorer's definition); the mean of these member kappas
+is a better kappa estimate than the kappa of the averaged map, because averaging maps blurs the boundary shape. The target is the mean
+of this member-mean kappa and the direct regressors' kappa, applied only on frames where the two agree on the direction of the change
+(about 60% of frames; Thomson-poor frames never). The map is compressed or expanded radially about the magnetic axis, inside the plasma
+(weight 1 inside the separatrix, smoothly 0 by psi_N = 1.4), with the factor found per frame by root-finding so that the kappa read off
+the map moves half-way to the target; the realised value of the written float32 map is re-checked, because the separatrix extraction
+can jump near the X-point, and frames without an admissible solution are left unchanged. Changing the width rather than the height
+matters: vertical stretches move the X-point and worsen the separatrix distance, radial compression does not.
+
 Last, the internal inductance is adjusted without moving the separatrix or the axis. Inside the separatrix the normalised flux
 s = (psi_axis - psi)/(psi_axis - psi_b) is remapped as h(s) = s + a s (1 - s)^2, which keeps the axis value, the separatrix level and
 the edge gradient (h(1) = 1, h'(1) = 1). For each frame, `a` is found by root-finding so that li computed from the remapped map
 (the scorer's li(2) definition: volume-averaged Bp^2 over the squared mean boundary Bp) moves 35% of the way from the map's own li
-toward the direct regressors' li. Thomson-poor frames are skipped. The adjustment changes the map by about 0.25% of its spread.
+toward the direct regressors' li, measured from the li before the elongation step. Thomson-poor frames are skipped. The adjustment changes the map by about 0.25% of its spread.
 Earlier open-loop corrections (fixed remap or stretch amplitudes) did not help because the realised change tracked the intended one
 poorly; solving for the official li per frame removes that error.
 
@@ -42,19 +51,22 @@ poorly; solving for the official li per frame removes that error.
 Development (held-out shots, official scorer, train-only analogues of the members): S = 0.99684 on the native-frame fold and 0.99450
 on the legacy fold for a 43-member structure. Public leaderboard (all-labelled members): 0.996271 and 0.996275 for two independent
 43-member draws, 0.996283 for both draws together (86 members), and 0.996345 for the 86-member blend with the li adjustment (li R^2
-0.9675 -> 0.9698; development: +0.000025 native, +0.000011 legacy at strength 0.35). Measured contributions on the public leaderboard:
-vessel features -0.00032 D_LCFS and +0.00017 consistency; future features and the axis shift +0.00006 to +0.00008 S; li adjustment
-+0.00006 S.
+0.9675 -> 0.9698; development: +0.000025 native, +0.000011 legacy at strength 0.35). The submitted 64-member structure scored 0.996330
+without and 0.996379 with the elongation step (kappa R^2 0.9800 -> 0.9819, volume -0.0005; development: +0.000039 native, +0.000049
+legacy). Measured contributions on the public leaderboard: vessel features -0.00032 D_LCFS and +0.00017 consistency; future features and
+the axis shift +0.00006 to +0.00008 S; li adjustment +0.00006 S; elongation adjustment +0.00005 S.
 
 ## Compute
 Training is about 15.5 A100-minutes per member when four members share one GPU (measured on an A100 80GB). The full entry (64 members,
 regressors and closure) is estimated at ~17.3 A100-hours (~11.9 H100-hours), within the 24 GPU-hour limit; a complete 43-member run
-measured 8.9 H100-hours end to end. CPU preparation takes about 4-6 h; the post-processing (closure, axis shift, li adjustment) about
-1 h on 10 cores.
+measured 8.9 H100-hours end to end. CPU preparation takes about 4-6 h; the post-processing (closure, axis shift, per-member kappa of
+all 64 members, elongation and li adjustments) about 5 h on 10 cores.
 
 ## What did not help
 Things we tested on the official scorer that did not help: larger output rank, U-Net and transformer members, Green's-function/GS
-physics decoders and GS losses, geometry/kappa/axis losses, open-loop post-hoc stretches, member reweighting or trimming, temporal
+physics decoders and GS losses, geometry/kappa/axis losses, open-loop post-hoc stretches, vertical (instead of radial) closed-loop
+stretches, closed-loop triangularity corrections (ill-conditioned: the separatrix level moves instead of the vertex), member reweighting
+or trimming, temporal
 smoothing, li heads on the members' hidden features, and additional input families (Thomson dynamics, long-horizon future,
 current-diffusion simulations, fast fluctuation power). More members help only slowly (43 -> 86: +0.000008 public), because the
 members share their errors; 64 members fit the GPU budget with margin.

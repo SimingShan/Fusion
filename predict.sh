@@ -1,6 +1,6 @@
 #!/bin/bash
 # Inference entrypoint: blend the trained members on the DIII-D public test, apply the closure and the gate-aware Z-only axis shift,
-# apply the boundary-preserving li adjustment, and package the submission.   FUSION_ROOT=/path/to/fusion_c1_final PYTHON=/path/to/python bash predict.sh [NAME]
+# apply the closed-loop elongation and li adjustments, and package the submission.   FUSION_ROOT=/path/to/fusion_c1_final PYTHON=/path/to/python bash predict.sh [NAME]
 # Works after train.sh (members/ trained locally) or from the published weights alone (weights/, default WEIGHTS=weights).
 set -euo pipefail
 cd "${FUSION_ROOT:?set FUSION_ROOT to the package root}"
@@ -10,6 +10,7 @@ M=${MEMBERS_DIR:-members}   # optional overrides below; the defaults are the sub
 seeds() { local out="" r a n i; for r in ${1//,/ }; do a=${r%%:*}; n=${r##*:}; for ((i = 0; i < n; i++)); do out="$out $((a + i))"; done; done; echo $out; }
 LVF_LIST=$(seeds "${LVF_SEEDS:-6001:17,6101:7}"); LAV_LIST=$(seeds "${LAV_SEEDS:-7101:26,7201:14}")   # start:count[,start:count]
 LI_B=${LI_B:-0.35}   # li adjustment strength (0 = off)
+KAPPA_B=${KAPPA_B:-0.5}   # elongation adjustment strength (0 = off)
 declare -A TEST_VIEW=([LVF]=data/advanced_history_test_vf_v1 [LAV]=data/advanced_test_vessel_v1)
 
 export_member() {   # member test predictions from the local endpoint, else from the published checkpoint
@@ -37,9 +38,21 @@ $PY -u results/training/muon161/blend_from_members.py "$C/diii_d_public_test_clo
 # Z-only interior axis shift (beta 0.5) toward the direct regressors, skipped on gated frames
 $PY -u results/analysis/scalar_probe_160/make_gated_targets.py direct_vf60 test
 WARP_SRC="$C/diii_d_public_test_closed.npz" BAR=0 BAZ=0.5 REG=pred_direct_vf60g_test.npy $PY -u results/analysis/scalar_probe_160/export_warp_z.py "$NAME" 0.5 1
+J=results/analysis/jkappa_211; LI_TGT="$C/li_target.npy"; LI_FRAC=$LI_B
+if [ "$KAPPA_B" != "0" ]; then
+  # elongation adjustment: target = mean of (a) the members' own official kappa and (b) the direct regressors' kappa, used only where (a) and
+  # (b) move kappa the same way; realised by a radial compression/expansion about the magnetic axis, solved per frame on the official kappa
+  # (closed loop, realised value of the float32 field verified); Thomson-poor frames untouched. CPU only.
+  { for s in $LVF_LIST; do echo "1 $M/LVF_s$s/test/diii_d_public_test.npz"; done; for s in $LAV_LIST; do echo "1 $M/LAV_s$s/test/diii_d_public_test.npz"; done; } > "$C/members_test.txt"
+  NO_LI=1 $PY -u $J/member_scalars.py "$C/members_test.txt" "$C/member_scalars.npz" "$C/diii_d_public_test.npz" "${KAPPA_WORKERS:-8}"
+  AGREE=1 LIB=$LI_B $PY $J/make_targets.py results/analysis/scalar_probe_160/pred_direct_vf60g_test.npy "$C/tgt" "$C/member_scalars.npz"
+  KMODE=r $PY -u $J/kappa_adjust3.py "$C/diii_d_public_test.npz" "$C/diii_d_public_test_k.npz" "$C/tgt_kappa.npy" "$KAPPA_B" "${KAPPA_WORKERS:-8}" 1.4
+  mv "$C/diii_d_public_test_k.npz" "$C/diii_d_public_test.npz"
+  LI_TGT="$C/tgt_li.npy"; LI_FRAC=1.0   # li target anchored on the pre-elongation li: li_base + LI_B (li_direct - li_base), realised exactly
+fi
 if [ "$LI_B" != "0" ]; then   # boundary-preserving li adjustment toward the direct regressors' li (fraction LI_B; Thomson-poor frames untouched)
-  $PY -c "import numpy as np; g = np.load('results/analysis/scalar_probe_160/pred_direct_vf60g_test.npy'); np.save('$C/li_target.npy', g[:, 6].astype(np.float64))"
-  $PY -u results/analysis/lihead_210/li_adjust.py "$C/diii_d_public_test.npz" "$C/diii_d_public_test_li.npz" "$C/li_target.npy" "$LI_B" - "${LI_WORKERS:-8}"
+  [ "$KAPPA_B" != "0" ] || $PY -c "import numpy as np; g = np.load('results/analysis/scalar_probe_160/pred_direct_vf60g_test.npy'); np.save('$C/li_target.npy', g[:, 6].astype(np.float64))"
+  $PY -u results/analysis/lihead_210/li_adjust.py "$C/diii_d_public_test.npz" "$C/diii_d_public_test_li.npz" "$LI_TGT" "$LI_FRAC" - "${LI_WORKERS:-8}"
   mv "$C/diii_d_public_test_li.npz" "$C/diii_d_public_test.npz"
 fi
 $PY -u scripts/package_submission.py --pred "$C/diii_d_public_test.npz" --output "$C/submission.zip"

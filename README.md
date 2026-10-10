@@ -10,7 +10,7 @@ conda env create -f env/environment.yml && conda activate fusion-c1-final
 export FUSION_ROOT=$PWD PYTHON=$(which python)
 bash prepare.sh        # CPU: download (pinned revision) -> views -> li stores -> vessel/future features -> scalar targets
 bash train.sh          # GPU: 24 LVF + 40 LAV members (4 at a time on one GPU), 6 direct regressors, POD-512 closure
-bash predict.sh        # blend + closure + axis shift + li adjustment -> results/candidates/final/submission.zip
+bash predict.sh        # blend + closure + axis shift + elongation and li adjustments -> results/candidates/final/submission.zip
 ```
 Under a batch scheduler, set `FUSION_ROOT` explicitly (job scripts run from a spool copy).
 
@@ -30,10 +30,14 @@ Under a batch scheduler, set `FUSION_ROOT` explicitly (job scripts run from a sp
 - **Direct regressors**: 6 small MLPs (256x3) predict the seven flux-derived scalars from the same inputs (training split only).
 - **Axis shift**: inside the separatrix only, the magnetic axis is moved half-way (vertical component only) toward the regressors'
   axis; skipped on Thomson-poor frames. The separatrix is untouched.
+- **Elongation adjustment** (`results/analysis/jkappa_211/`): `member_scalars.py` reads the scorer's kappa off every member's own map;
+  the target is the mean of that member-mean kappa and the regressors' kappa, used only where the two agree on the direction
+  (`make_targets.py`); `kappa_adjust3.py` (KMODE=r) compresses/expands the map radially about the axis inside the plasma, solving per
+  frame so the map's kappa moves half-way to the target (`KAPPA_B=0.5`; realised value verified; Thomson-poor frames skipped).
 - **li adjustment** (`results/analysis/lihead_210/li_adjust.py`): inside the separatrix the normalised flux s is remapped,
   h(s) = s + a s (1 - s)^2 (axis value, separatrix level and edge gradient unchanged), with `a` solved per frame so that the internal
-  inductance computed from the map (the scorer's li(2) definition) moves 35% of the way toward the regressors' li. Shape, separatrix
-  and axis are unchanged; skipped on Thomson-poor frames.
+  inductance computed from the map (the scorer's li(2) definition) moves 35% of the way toward the regressors' li (measured from the li
+  before the elongation step). Shape, separatrix and axis are unchanged; skipped on Thomson-poor frames.
 
 ## Compute (GPU budget: 24 GPU-hours on one 80 GB A100-class GPU)
 
@@ -48,7 +52,8 @@ Under a batch scheduler, set `FUSION_ROOT` explicitly (job scripts run from a sp
 `train.sh` writes `gpu_timing.json`. Measured end to end: a complete from-scratch `train.sh` run of the 43-member subset (17 LVF + 26
 LAV, one H100 80GB, 4 members at a time) took 3.30 h (LVF, 5 batches) + 4.98 h (LAV, 7 batches) + 0.09 h (regressors) + 0.51 h
 (closure) = 8.9 H100-hours; the 64-member default adds 4 batches. CPU preparation (~3-5 h on 8-16 cores, plus ~1.5 h for the li
-stores on a large-memory node) and inference post-processing (closure, axis shift, li adjustment: ~1 h on 10 cores) are not budgeted.
+stores on a large-memory node) and inference post-processing (closure, axis shift, per-member kappa, elongation and li adjustments: ~5 h
+on 10 cores) are not budgeted.
 
 ## New test inputs (final phase)
 
@@ -59,6 +64,8 @@ MEMBERS_DIR=members_final WEIGHTS=weights bash predict.sh final_private
 ```
 Verified with the public test as a stand-in: the rebuilt test views and features were bit-identical to `prepare.sh`'s (6,153 arrays),
 and inference from `weights/` with fresh member exports reproduced the full-pipeline prediction bit-identically (same archive sha256).
+The full current chain (with the elongation step) re-run from the member exports reproduced the submitted prediction with the same
+per-frame decisions in both adjustment steps (to float32 rounding, see Reproducibility).
 
 ## Data provenance
 
@@ -71,7 +78,9 @@ split, no MAST labels or MAST training data. Inputs only: coil currents, plasma 
 Training is reproducible statistically, not bitwise: GPU floating-point summation order differs between GPU types, and over 600 cold
 epochs this makes a rebuilt member a fresh draw of the same distribution. On the same GPU type a rebuild stays close to the original
 (test-flux relative difference 0.002 vs 0.010 between seeds); across GPU types it differs like another seed. Two independent 43-member
-draws of this recipe scored within 0.000004 of each other on the public leaderboard. Inference from given weights is deterministic.
+draws of this recipe scored within 0.000004 of each other on the public leaderboard. Inference from given weights is deterministic on
+the same CPU type and thread count; with another thread count the closure network's float32 products round differently (flux
+differences up to ~1e-4 on ~5% of frames, 2e-13 of the field variance; scalar predictions identical), which does not change the score.
 
 ## Trained weights (the submitted entry)
 
