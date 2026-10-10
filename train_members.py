@@ -6,7 +6,8 @@ Each stage runs the trainer results/training/scale150/src/scripts/train_pod.py w
 {out}, {stage}); the final Muon epoch is the member's endpoint (all-labelled members have no held-out selection).
   LVF : B recipe + vessel + future-actuator inputs (view data/advanced_history_alllab_vf_v1), Muon lr ratio 30;  test view data/advanced_history_test_vf_v1
   LAV : A recipe + vessel inputs (view data/advanced_alllab_vessel_v1), Muon lr ratio 200;                        test view data/advanced_test_vessel_v1
-usage: train_members.py <FAMILY> <first_seed> <n_members> [--parallel 4] [--out members]
+usage: train_members.py <FAMILY> <first_seed> <n_members> [--seeds 6001:17,6101:7] [--parallel 4] [--out members]
+       (--seeds lists start:count ranges and replaces first_seed/n_members; all listed members share one pool of --parallel slots)
 Writes <out>/<FAMILY>_s<seed>/{cold,refine,muon}/..., test/diii_d_public_test.npz, complete.json (per-stage wall seconds)."""
 import argparse, json, os, subprocess, sys, time
 from concurrent.futures import ThreadPoolExecutor
@@ -49,8 +50,10 @@ def member(family, seed, out_root, cfg):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(); ap.add_argument("family", choices=sorted(TEST_VIEW)); ap.add_argument("first_seed", type=int); ap.add_argument("n", type=int)
-    ap.add_argument("--parallel", type=int, default=4); ap.add_argument("--out", default="members"); a = ap.parse_args()
+    ap.add_argument("--parallel", type=int, default=4); ap.add_argument("--out", default="members")
+    ap.add_argument("--seeds", default="", help="start:count[,start:count...] ranges; replaces first_seed/n_members"); a = ap.parse_args()
+    seeds = [s0 + i for r in a.seeds.split(",") if r for s0, n in [map(int, r.split(":"))] for i in range(n)] if a.seeds else list(range(a.first_seed, a.first_seed + a.n))
     cfg = json.loads((ROOT / f"configs/{a.family}.json").read_text()); out_root = (ROOT / a.out).resolve(); t0 = time.monotonic()
     with ThreadPoolExecutor(a.parallel) as pool:
-        recs = list(pool.map(lambda s: member(a.family, s, out_root, cfg), range(a.first_seed, a.first_seed + a.n)))
+        recs = list(pool.map(lambda s: member(a.family, s, out_root, cfg), seeds))
     print(json.dumps({"family": a.family, "members": len(recs), "wall_hours": (time.monotonic() - t0) / 3600}), flush=True)
