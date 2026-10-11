@@ -74,7 +74,7 @@ log "7. scalar targets for the direct axis regressors"
 $PY -u results/analysis/scalar_probe_160/prep_targets.py
 fi
 if [ "$START" -le 8 ]; then
-log "8. consistency-scalar targets of the appended dev rows and the 9-scalar all-labelled LVF view (HLVF members' extra heads)"
+log "8. consistency-scalar targets of the appended dev rows and the 9-scalar all-labelled LVF / LAV views (heads members)"
 $PY -u results/analysis/heads_217/dev_targets.py 8
 $PY -u results/analysis/heads_217/make_heads_view.py
 fi

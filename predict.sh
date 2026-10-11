@@ -10,11 +10,13 @@ M=${MEMBERS_DIR:-members}   # optional overrides below; the defaults are the sub
 seeds() { local out="" r a n i; for r in ${1//,/ }; do a=${r%%:*}; n=${r##*:}; for ((i = 0; i < n; i++)); do out="$out $((a + i))"; done; done; echo $out; }
 LF=${LVF_FAMILY:-HLVF}   # B-family members: HLVF = LVF recipe + consistency-scalar heads (submitted entry); LVF = without heads
 if [ "$LF" = "HLVF" ]; then LVF_DEFAULT=6301:24; else LVF_DEFAULT=6001:17,6101:7; fi
-LVF_LIST=$(seeds "${LVF_SEEDS:-$LVF_DEFAULT}"); LAV_LIST=$(seeds "${LAV_SEEDS:-7101:26,7201:14}")   # start:count[,start:count]
+LAF=${LAV_FAMILY:-HLAV}   # A-family members: HLAV = LAV recipe + consistency-scalar heads (submitted entry); LAV = without heads
+if [ "$LAF" = "HLAV" ]; then LAV_DEFAULT=7401:40; else LAV_DEFAULT=7101:26,7201:14; fi
+LVF_LIST=$(seeds "${LVF_SEEDS:-$LVF_DEFAULT}"); LAV_LIST=$(seeds "${LAV_SEEDS:-$LAV_DEFAULT}")   # start:count[,start:count]
 Z_BETA=${Z_BETA:-0.75}   # Z-shift strength toward the heads/regressor target (0.5 toward the regressors alone without heads)
 LI_B=${LI_B:-0.35}   # li adjustment strength (0 = off)
 KAPPA_B=${KAPPA_B:-0.5}   # elongation adjustment strength (0 = off)
-declare -A TEST_VIEW=([LVF]=data/advanced_history_test_vf_v1 [HLVF]=data/advanced_history_test_vf_v1 [LAV]=data/advanced_test_vessel_v1)
+declare -A TEST_VIEW=([LVF]=data/advanced_history_test_vf_v1 [HLVF]=data/advanced_history_test_vf_v1 [LAV]=data/advanced_test_vessel_v1 [HLAV]=data/advanced_test_vessel_v1)
 
 export_member() {   # member test predictions from the local endpoint, else from the published checkpoint
   local fam=$1 seed=$2 d=$M/$1_s$2
@@ -26,7 +28,7 @@ export_member() {   # member test predictions from the local endpoint, else from
 }
 jobs=0
 for s in $LVF_LIST; do export_member $LF $s & jobs=$((jobs + 1)); [ $((jobs % PAR)) -eq 0 ] && wait; done; wait
-for s in $LAV_LIST; do export_member LAV $s & jobs=$((jobs + 1)); [ $((jobs % PAR)) -eq 0 ] && wait; done; wait
+for s in $LAV_LIST; do export_member $LAF $s & jobs=$((jobs + 1)); [ $((jobs % PAR)) -eq 0 ] && wait; done; wait
 # closure files and direct-regressor predictions: from train.sh outputs, else from the published weights
 CL=results/candidates/20261004-080/closure
 [ -f $CL/closure64.pt ] || { mkdir -p $CL; cp "$W/closure/basis512.npz" "$W/closure/closure64.pt" $CL/; }
@@ -34,7 +36,7 @@ CL=results/candidates/20261004-080/closure
 
 S=""
 for s in $LVF_LIST; do d=$M/${LF}_s$s/test; [ -f $d/diii_d_public_test.npz ] || { echo "missing $d" >&2; exit 1; }; S="$S B=$d"; done
-for s in $LAV_LIST; do d=$M/LAV_s$s/test; [ -f $d/diii_d_public_test.npz ] || { echo "missing $d" >&2; exit 1; }; S="$S A=$d"; done
+for s in $LAV_LIST; do d=$M/${LAF}_s$s/test; [ -f $d/diii_d_public_test.npz ] || { echo "missing $d" >&2; exit 1; }; S="$S A=$d"; done
 echo $S | tr ' ' '\n' > "$C/blend_specs.txt"
 # equal per-entry weights; B-only on Thomson-poor (gated) frames; POD-512 closure
 $PY -u results/training/muon161/blend_from_members.py "$C/diii_d_public_test_closed.npz" $S
@@ -43,7 +45,7 @@ $PY -u results/analysis/scalar_probe_160/make_gated_targets.py direct_vf60 test
 HEADS_ENV=""
 if [ "$LF" = "HLVF" ]; then
   # targets from the HLVF members' consistency-scalar heads: Z target = (heads + regressors) / 2, kappa target gains the heads as a third vote
-  for s in $LVF_LIST; do echo "$M/${LF}_s$s/test"; done > "$C/heads_members.txt"
+  { for s in $LVF_LIST; do echo "$M/${LF}_s$s/test"; done; [ "$LAF" = "HLAV" ] && for s in $LAV_LIST; do echo "$M/${LAF}_s$s/test"; done; true; } > "$C/heads_members.txt"
   $PY -u results/analysis/heads_217/heads_targets.py "$C/heads_members.txt" results/analysis/scalar_probe_160/pred_direct_vf60g_test.npy "$C/heads"
   ZREG="$PWD/$C/heads_zreg.npy"; HEADS_ENV="$PWD/$C/heads_heads.npy"   # absolute: export_warp_z.py resolves REG against its own directory
 else
@@ -55,7 +57,7 @@ if [ "$KAPPA_B" != "0" ]; then
   # elongation adjustment: target = mean of (a) the members' own official kappa and (b) the direct regressors' kappa, used only where (a) and
   # (b) move kappa the same way; realised by a radial compression/expansion about the magnetic axis, solved per frame on the official kappa
   # (closed loop, realised value of the float32 field verified); Thomson-poor frames untouched. CPU only.
-  { for s in $LVF_LIST; do echo "1 $M/${LF}_s$s/test/diii_d_public_test.npz"; done; for s in $LAV_LIST; do echo "1 $M/LAV_s$s/test/diii_d_public_test.npz"; done; } > "$C/members_test.txt"
+  { for s in $LVF_LIST; do echo "1 $M/${LF}_s$s/test/diii_d_public_test.npz"; done; for s in $LAV_LIST; do echo "1 $M/${LAF}_s$s/test/diii_d_public_test.npz"; done; } > "$C/members_test.txt"
   NO_LI=1 $PY -u $J/member_scalars.py "$C/members_test.txt" "$C/member_scalars.npz" "$C/diii_d_public_test.npz" "${KAPPA_WORKERS:-8}"
   HEADS="$HEADS_ENV" AGREE=1 LIB=$LI_B $PY $J/make_targets.py results/analysis/scalar_probe_160/pred_direct_vf60g_test.npy "$C/tgt" "$C/member_scalars.npz"
   KMODE=r $PY -u $J/kappa_adjust3.py "$C/diii_d_public_test.npz" "$C/diii_d_public_test_k.npz" "$C/tgt_kappa.npy" "$KAPPA_B" "${KAPPA_WORKERS:-8}" 1.4

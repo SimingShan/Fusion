@@ -69,6 +69,10 @@ Compiled 2026-10-09 from Slurm accounting (`sacct -o SubmitLine`), manifests, ru
     2797594-2797599, one H100 80GB each, 44-47 min per batch of 4); configs/HLVF.json; heads exported to `test/diii_d_public_test_heads.npz`.
 32. Head targets at prediction time: `heads_217/heads_targets.py` (Z target = (heads + regressors)/2; kappa: `make_targets.py HEADS=`).
 33. Submitted as candidate 20261011-115 (public leaderboard 0.996400), built by `predict.sh` with the rehearsal's regressors and closure.
+34. HLAV x40 (seeds 7401-7440): `train_members.py HLAV 0 0 --seeds 7401:4 ... --parallel 4 --out members_heads` (10 jobs 2807201-2807209 +
+    2810837, one H100 each; the 7437-7440 batch re-run after a hung refine on one node); configs/HLAV.json; the 9-scalar LAV view from
+    `heads_217/make_heads_view.py` (bitwise equal to the training view).
+35. The submitted entry (24 HLVF + 40 HLAV, head targets from all 64) = candidate 20261011-118, public leaderboard 0.996423.
 
 ## Gaps to close for a reproduction package
 1. Script the gated-NaN regressor file (step 23).
