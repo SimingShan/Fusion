@@ -48,14 +48,16 @@ Under a batch scheduler, set `FUSION_ROOT` explicitly (job scripts run from a sp
 | stage | measured / derived |
 |---|---|
 | one member, 4 members sharing one GPU | A100 80GB: 15.7 GPU-min (LVF), 15.3 GPU-min (LAV) (measured, one full batch each); HLVF = LVF (7 extra outputs; H100 batches of 4: 44-47 min, as LVF) |
-| 64 members (24 HLVF + 40 LAV, 16 full batches of 4) | ~16.5 h on one A100 (16 x 4 x ~15.5 min); ~11.3 h on one H100 (16 batches x ~0.7 h, from the run below) |
-| direct regressors | 5.5 min (H100, measured) |
-| closure (POD-512 + autoencoder ceilings + closure net) | 30 min (H100, measured) |
-| **total** | **~17.3 A100-hours** (24 h cap); ~11.9 H100-hours |
+| 64 members (24 HLVF + 40 LAV, 16 full batches of 4) | **measured 15.87 h on one A100 80GB PCIe** (24 history members 5.84 h + 40 LAV 10.03 h); ~11.3 h on one H100 |
+| direct regressors | 8.2 min (A100 PCIe, measured); 5.5 min (H100) |
+| closure (POD-512 + autoencoder ceilings + closure net) | 43 min (A100 PCIe, measured); 30 min (H100) |
+| **total** | **16.72 A100-hours measured end to end** (24 h cap); ~11.9 H100-hours |
 
-`train.sh` writes `gpu_timing.json`. Measured end to end: a complete from-scratch `train.sh` run of the 43-member subset (17 LVF + 26
-LAV, one H100 80GB, 4 members at a time) took 3.30 h (LVF, 5 batches) + 4.98 h (LAV, 7 batches) + 0.09 h (regressors) + 0.51 h
-(closure) = 8.9 H100-hours; the 64-member default adds 4 batches. CPU preparation (~3-5 h on 8-16 cores, plus ~1.5 h for the li
+`train.sh` writes `gpu_timing.json`. Measured end to end on one NVIDIA A100 80GB PCIe (2026-10-10/11, a fresh clone, `prepare.sh`
+then `train.sh` with the 64-member defaults): `{"members_LVF_hours": 5.837, "members_LAV_hours": 10.029, "direct_regressors_hours":
+0.137, "closure_hours": 0.714, "total_hours": 16.717}`. That run trained the head-less history family (LVF); the HLVF members differ only
+by seven extra output units of a 1.2M-parameter network and train in the same time (H100 batches of four: 44-47 min, as LVF). An earlier
+43-member run on one H100 80GB took 8.9 H100-hours. CPU preparation (~3-5 h on 8-16 cores, plus ~1.5 h for the li
 stores on a large-memory node) and inference post-processing (closure, axis shift, per-member kappa, elongation and li adjustments: ~5 h
 on 10 cores) are not budgeted.
 

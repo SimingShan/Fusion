@@ -64,10 +64,9 @@ vessel features -0.00032 D_LCFS and +0.00017 consistency; future features and th
 +0.00006 S; elongation adjustment +0.00005 S; consistency-scalar heads +0.00002 S.
 
 ## Compute
-Training is about 15.5 A100-minutes per member when four members share one GPU (measured on an A100 80GB). The full entry (64 members,
-regressors and closure) is estimated at ~17.3 A100-hours (~11.9 H100-hours), within the 24 GPU-hour limit (the heads add seven outputs
-to a 1.2M-parameter network and no measurable time); a complete 43-member run
-measured 8.9 H100-hours end to end. CPU preparation takes about 4-6 h; the post-processing (closure, axis shift, per-member kappa of
+Training is about 15 A100-minutes per member when four members share one GPU. A complete from-scratch run of the 64-member entry
+(members, regressors and closure) took 16.7 hours on one A100 80GB PCIe, within the 24 GPU-hour limit (the heads add seven outputs to a
+1.2M-parameter network and no measurable time); a 43-member run took 8.9 H100-hours. CPU preparation takes about 4-6 h; the post-processing (closure, axis shift, per-member kappa of
 all 64 members, elongation and li adjustments) about 5 h on 10 cores.
 
 ## What did not help
