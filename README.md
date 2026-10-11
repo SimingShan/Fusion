@@ -86,7 +86,9 @@ split, no MAST labels or MAST training data. Inputs only: coil currents, plasma 
 Training is reproducible statistically, not bitwise: GPU floating-point summation order differs between GPU types, and over 600 cold
 epochs this makes a rebuilt member a fresh draw of the same distribution. On the same GPU type a rebuild stays close to the original
 (test-flux relative difference 0.002 vs 0.010 between seeds); across GPU types it differs like another seed. Two independent 43-member
-draws of this recipe scored within 0.000004 of each other on the public leaderboard. Inference from given weights is deterministic on
+draws of this recipe scored within 0.000004 of each other on the public leaderboard, and a complete from-scratch rebuild of the previous
+(head-less) 64-member entry (fresh clone; `prepare.sh`, `train.sh` on one A100 80GB PCIe, `predict.sh`; every member, regressor and the
+closure retrained) scored 0.996379 on the public leaderboard, identical to the original entry's 0.996379. Inference from given weights is deterministic on
 the same CPU type and thread count; with another thread count the closure network's float32 products round differently (flux
 differences up to ~1e-4 on ~5% of frames, 2e-13 of the field variance; scalar predictions identical), which does not change the score.
 
