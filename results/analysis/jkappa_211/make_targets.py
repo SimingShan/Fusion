@@ -5,6 +5,8 @@
   li target     li_t = li_base + LIB (li_D - li_base), anchored on the official li of the PRE-kappa field (the 'base' of the first part),
                 realised with li_adjust.py at b = 1 after the kappa step (so the stretch's li side effect is removed).
 usage: make_targets.py <direct.npy (N, 7)> <out_prefix> <mscal part.npz[@member_weight] ...>   [env LIB=0.35, AGREE=1: kappa targets only where sign(J-x) = sign(D-x)]
+       env HEADS=<heads.npy (N, 7)>: kappa target M = (J + H + D) / 3 (H = mean consistency-scalar head of the HLVF members), with AGREE=1 only
+       where J, D and H all move kappa the same way
 (member_weight overrides the file's per-member weights, e.g. to restore the blend's family shares from a member subset)
 -> <out_prefix>_kappa.npy, <out_prefix>_li.npy, <out_prefix>_summary.json"""
 import json, os, sys
@@ -23,10 +25,18 @@ J = np.where(den >= 0.5 * w.sum(), (np.where(fin, S[..., 2], 0.0) * Wk).sum(0) /
 ok = np.isfinite(J) & np.isfinite(D[:, 2]) & np.isfinite(base[:, 2])
 if os.environ.get("AGREE", "0") == "1":     # only where the member mean and the direct regressors move kappa the same way
     ok &= np.sign(J - base[:, 2]) == np.sign(D[:, 2] - base[:, 2])
-M = np.where(ok, 0.5 * (J + D[:, 2]), np.nan)
+HP = os.environ.get("HEADS", "")
+if HP:   # three-way target with the jointly trained heads; with AGREE=1 all three must move kappa the same way
+    Hk = np.load(HP).astype(np.float64)[:, 2]; assert len(Hk) == len(D), (len(Hk), len(D))
+    ok &= np.isfinite(Hk)
+    if os.environ.get("AGREE", "0") == "1":
+        ok &= np.sign(Hk - base[:, 2]) == np.sign(J - base[:, 2])
+    M = np.where(ok, (J + Hk + D[:, 2]) / 3.0, np.nan)
+else:
+    M = np.where(ok, 0.5 * (J + D[:, 2]), np.nan)
 li_ok = np.isfinite(D[:, 6]) & np.isfinite(base[:, 6]); li_t = np.where(li_ok, base[:, 6] + LIB * (D[:, 6] - base[:, 6]), np.nan)
 np.save(pre + "_kappa.npy", M); np.save(pre + "_li.npy", li_t)
-summ = {"frames": int(len(D)), "members": int(len(S)), "agree_gate": os.environ.get("AGREE", "0") == "1", "kappa_targets": int(ok.sum()), "li_targets": int(li_ok.sum()),
+summ = {"frames": int(len(D)), "members": int(len(S)), "agree_gate": os.environ.get("AGREE", "0") == "1", "heads": HP or None, "kappa_targets": int(ok.sum()), "li_targets": int(li_ok.sum()),
         "rms_M_minus_base": float(np.sqrt(np.nanmean((M - base[:, 2]) ** 2))), "rms_J_minus_base": float(np.sqrt(np.nanmean((J - base[:, 2]) ** 2))),
         "rms_D_minus_base": float(np.sqrt(np.nanmean((D[:, 2] - base[:, 2]) ** 2)))}
 Path(pre + "_summary.json").write_text(json.dumps(summ, indent=1)); print(json.dumps(summ))

@@ -1,6 +1,6 @@
 #!/bin/bash
 # CPU data preparation for the Challenge-1 (DIII-D) entry: raw download -> base views -> li stores -> all-labelled view ->
-# vessel / future-actuator features and views -> scalar targets.  Every command below is the one recorded in Slurm accounting for the
+# vessel / future-actuator features and views -> scalar targets -> 9-scalar view for the HLVF members.  Every command below is the one recorded in Slurm accounting for the
 # artifacts our members were trained on (see PROVENANCE.md).  CPU only (not part of the GPU budget).  Run from anywhere:
 #   FUSION_ROOT=/path/to/fusion_c1_final PYTHON=/path/to/python bash prepare.sh [N_SHARDS]
 set -euo pipefail
@@ -72,5 +72,10 @@ fi
 if [ "$START" -le 7 ]; then
 log "7. scalar targets for the direct axis regressors"
 $PY -u results/analysis/scalar_probe_160/prep_targets.py
+fi
+if [ "$START" -le 8 ]; then
+log "8. consistency-scalar targets of the appended dev rows and the 9-scalar all-labelled LVF view (HLVF members' extra heads)"
+$PY -u results/analysis/heads_217/dev_targets.py 8
+$PY -u results/analysis/heads_217/make_heads_view.py
 fi
 log "done"

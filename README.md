@@ -8,8 +8,8 @@ and inference/packaging. The code is the code that trained the submitted members
 ```bash
 conda env create -f env/environment.yml && conda activate fusion-c1-final
 export FUSION_ROOT=$PWD PYTHON=$(which python)
-bash prepare.sh        # CPU: download (pinned revision) -> views -> li stores -> vessel/future features -> scalar targets
-bash train.sh          # GPU: 24 LVF + 40 LAV members (4 at a time on one GPU), 6 direct regressors, POD-512 closure
+bash prepare.sh        # CPU: download (pinned revision) -> views -> li stores -> vessel/future features -> scalar targets -> heads view
+bash train.sh          # GPU: 24 HLVF + 40 LAV members (4 at a time on one GPU), 6 direct regressors, POD-512 closure
 bash predict.sh        # blend + closure + axis shift + elongation and li adjustments -> results/candidates/final/submission.zip
 ```
 Under a batch scheduler, set `FUSION_ROOT` explicitly (job scripts run from a spool copy).
@@ -18,21 +18,25 @@ Under a batch scheduler, set `FUSION_ROOT` explicitly (job scripts run from a sp
 
 - **Members** (all trained on every labelled DIII-D shot of the public release: the training split plus the public validation
   splits; the audit split is never used):
-  - `LVF` x24 (seeds 6001-6017, 6101-6107): POD-128 DeepONet-style MLP (width 256, depth 3) on 708 history/Thomson/current inputs
+  - `HLVF` x24 (seeds 6301-6324): POD-128 DeepONet-style MLP (width 256, depth 3) on 708 history/Thomson/current inputs
     + 126 vessel-current features (exponentially filtered derivatives of the raw 0.05 ms coil/plasma currents, tau 2-50 ms)
     + 126 future-actuator features (the same filters run backwards in time over the next 2-50 ms of the same shot).
     Cold 600 epochs (AdamW) -> refine 60 epochs (amplitude frame weights, fixed-contour li loss) -> 30 epochs Muon (lr ratio 30).
-    Recipe: `configs/LVF.json`.
+    Besides psi, q95 and betaN, these members have seven extra outputs ("heads") for the seven consistency scalars of the label
+    maps (R_axis, Z_axis, kappa, tri_top, tri_bot, volume, li; the scorer's own derivation), trained jointly at loss weight 0.05 per
+    entry; the q95/betaN loss is exactly the head-less one. Recipe: `configs/HLVF.json` (= `configs/LVF.json` + `--heads-weight 0.05`
+    on the 9-scalar view built by `prepare.sh` step 8). `LVF_FAMILY=LVF` trains/uses the head-less recipe (`configs/LVF.json`).
   - `LAV` x40 (seeds 7101-7126, 7201-7214): the no-history A recipe with the vessel features; cold 600 -> refine 30 -> Muon 30
     epochs (ratio 200). `configs/LAV.json`.
-- **Blend**: equal weight per member; on Thomson-poor frames (useful-Thomson fraction <= 0.1) only the history (LVF) members are used.
+- **Blend**: equal weight per member; on Thomson-poor frames (useful-Thomson fraction <= 0.1) only the history (HLVF) members are used.
 - **Closure**: POD modes 129-512 of the blended flux are filled by a small network trained on training flux (`results/analysis/ae_ceiling_119`).
 - **Direct regressors**: 6 small MLPs (256x3) predict the seven flux-derived scalars from the same inputs (training split only).
-- **Axis shift**: inside the separatrix only, the magnetic axis is moved half-way (vertical component only) toward the regressors'
-  axis; skipped on Thomson-poor frames. The separatrix is untouched.
+- **Axis shift**: inside the separatrix only, the magnetic axis is moved 75% of the way (vertical component only) toward the mean
+  of the HLVF heads' axis height and the regressors' axis height (`results/analysis/heads_217/heads_targets.py`); skipped on
+  Thomson-poor frames. The separatrix is untouched.
 - **Elongation adjustment** (`results/analysis/jkappa_211/`): `member_scalars.py` reads the scorer's kappa off every member's own map;
-  the target is the mean of that member-mean kappa and the regressors' kappa, used only where the two agree on the direction
-  (`make_targets.py`); `kappa_adjust3.py` (KMODE=r) compresses/expands the map radially about the axis inside the plasma, solving per
+  the target is the mean of that member-mean kappa, the HLVF heads' kappa and the regressors' kappa, used only where all three agree on
+  the direction (`make_targets.py`, `HEADS=`); `kappa_adjust3.py` (KMODE=r) compresses/expands the map radially about the axis inside the plasma, solving per
   frame so the map's kappa moves half-way to the target (`KAPPA_B=0.5`; realised value verified; Thomson-poor frames skipped).
 - **li adjustment** (`results/analysis/lihead_210/li_adjust.py`): inside the separatrix the normalised flux s is remapped,
   h(s) = s + a s (1 - s)^2 (axis value, separatrix level and edge gradient unchanged), with `a` solved per frame so that the internal
@@ -43,8 +47,8 @@ Under a batch scheduler, set `FUSION_ROOT` explicitly (job scripts run from a sp
 
 | stage | measured / derived |
 |---|---|
-| one member, 4 members sharing one GPU | A100 80GB: 15.7 GPU-min (LVF), 15.3 GPU-min (LAV) (measured, one full batch each) |
-| 64 members (24 LVF + 40 LAV, 16 full batches of 4) | ~16.5 h on one A100 (16 x 4 x ~15.5 min); ~11.3 h on one H100 (16 batches x ~0.7 h, from the run below) |
+| one member, 4 members sharing one GPU | A100 80GB: 15.7 GPU-min (LVF), 15.3 GPU-min (LAV) (measured, one full batch each); HLVF = LVF (7 extra outputs; H100 batches of 4: 44-47 min, as LVF) |
+| 64 members (24 HLVF + 40 LAV, 16 full batches of 4) | ~16.5 h on one A100 (16 x 4 x ~15.5 min); ~11.3 h on one H100 (16 batches x ~0.7 h, from the run below) |
 | direct regressors | 5.5 min (H100, measured) |
 | closure (POD-512 + autoencoder ceilings + closure net) | 30 min (H100, measured) |
 | **total** | **~17.3 A100-hours** (24 h cap); ~11.9 H100-hours |
@@ -86,7 +90,7 @@ differences up to ~1e-4 on ~5% of frames, 2e-13 of the field variance; scalar pr
 
 `weights/` holds the exact trained parameters of the submitted ensemble (checksums in `weights/SHA256SUMS`), all produced by this
 package's own `train_members.py`:
-- `weights/members/LVF_s6001 ... LVF_s6017`, `LVF_s6101 ... LVF_s6107`, `LAV_s7101 ... LAV_s7126`, `LAV_s7201 ... LAV_s7214`
+- `weights/members/HLVF_s6301 ... HLVF_s6324`, `LAV_s7101 ... LAV_s7126`, `LAV_s7201 ... LAV_s7214`
   (`epoch_0030.pt` = final Muon epoch of each member; 64 members)
 - `weights/direct_vf60/w256_d3_s{4..9}.pt` (direct regressors)
 - `weights/closure/{basis512.npz, closure64.pt}` (POD-512 basis and closure network)

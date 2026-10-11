@@ -6,6 +6,7 @@ Each stage runs the trainer results/training/scale150/src/scripts/train_pod.py w
 {out}, {stage}); the final Muon epoch is the member's endpoint (all-labelled members have no held-out selection).
   LVF : B recipe + vessel + future-actuator inputs (view data/advanced_history_alllab_vf_v1), Muon lr ratio 30;  test view data/advanced_history_test_vf_v1
   LAV : A recipe + vessel inputs (view data/advanced_alllab_vessel_v1), Muon lr ratio 200;                        test view data/advanced_test_vessel_v1
+  HLVF: the LVF recipe with seven extra consistency-scalar heads (configs/HLVF.json), heads exported to test/diii_d_public_test_heads.npz
 usage: train_members.py <FAMILY> <first_seed> <n_members> [--seeds 6001:17,6101:7] [--parallel 4] [--out members]
        (--seeds lists start:count ranges and replaces first_seed/n_members; all listed members share one pool of --parallel slots)
 Writes <out>/<FAMILY>_s<seed>/{cold,refine,muon}/..., test/diii_d_public_test.npz, complete.json (per-stage wall seconds)."""
@@ -15,7 +16,7 @@ from pathlib import Path
 
 ROOT = Path(os.environ.get("FUSION_ROOT") or Path(__file__).resolve().parent)
 TRAIN = ROOT / "results/training/scale150/src/scripts/train_pod.py"
-TEST_VIEW = {"LVF": "data/advanced_history_test_vf_v1", "LAV": "data/advanced_test_vessel_v1"}
+TEST_VIEW = {"LVF": "data/advanced_history_test_vf_v1", "HLVF": "data/advanced_history_test_vf_v1", "LAV": "data/advanced_test_vessel_v1"}
 
 
 def stage_cmd(template, seed, out, stage):

@@ -1,18 +1,20 @@
 #!/bin/bash
 # GPU training entrypoint (from scratch; the only GPU-budgeted part).  Requires prepare.sh to have run.
 #   FUSION_ROOT=/path/to/fusion_c1_final PYTHON=/path/to/python bash train.sh
-# Defaults reproduce the submitted ensemble: 24 LVF members (seeds 6001-6017, 6101-6107) + 40 LAV members (seeds 7101-7126, 7201-7214),
-# 4 members at a time on the single GPU, then the 6 direct regressors and the POD-512 closure.  Wall-clock per stage -> gpu_timing.json.
-# Overrides: LVF_SEEDS / LAV_SEEDS (start:count[,start:count...]), PARALLEL (members per GPU).
+# Defaults reproduce the submitted ensemble: 24 HLVF members (LVF recipe + 7 consistency-scalar heads, seeds 6301-6324) + 40 LAV members
+# (seeds 7101-7126, 7201-7214), 4 members at a time on the single GPU, then the 6 direct regressors and the POD-512 closure.
+# Wall-clock per stage -> gpu_timing.json.  Overrides: LVF_FAMILY (HLVF | LVF), LVF_SEEDS / LAV_SEEDS (start:count[,start:count...]),
+# PARALLEL (members per GPU).
 set -euo pipefail
 cd "${FUSION_ROOT:?set FUSION_ROOT to the package root}"
 PY=${PYTHON:-python}; PAR=${PARALLEL:-4}
-LVF_SEEDS=${LVF_SEEDS:-6001:17,6101:7}; LAV_SEEDS=${LAV_SEEDS:-7101:26,7201:14}   # member seed ranges (start:count)
+LF=${LVF_FAMILY:-HLVF}; if [ "$LF" = "HLVF" ]; then LVF_DEFAULT=6301:24; else LVF_DEFAULT=6001:17,6101:7; fi
+LVF_SEEDS=${LVF_SEEDS:-$LVF_DEFAULT}; LAV_SEEDS=${LAV_SEEDS:-7101:26,7201:14}   # member seed ranges (start:count)
 t() { date +%s; }; T0=$(t); declare -A W
 log() { echo "=== $(date -u +%FT%TZ) $*"; }
 
-log "members: LVF seeds $LVF_SEEDS (B recipe + vessel + future inputs, Muon ratio 30)"; s=$(t)
-$PY -u train_members.py LVF 0 0 --seeds "$LVF_SEEDS" --parallel "$PAR" --out members; W[members_LVF]=$(( $(t) - s ))
+log "members: $LF seeds $LVF_SEEDS (B recipe + vessel + future inputs, Muon ratio 30; HLVF adds the consistency-scalar heads)"; s=$(t)
+$PY -u train_members.py "$LF" 0 0 --seeds "$LVF_SEEDS" --parallel "$PAR" --out members; W[members_$LF]=$(( $(t) - s ))
 log "members: LAV seeds $LAV_SEEDS (A recipe + vessel inputs, Muon ratio 200)"; s=$(t)
 $PY -u train_members.py LAV 0 0 --seeds "$LAV_SEEDS" --parallel "$PAR" --out members; W[members_LAV]=$(( $(t) - s ))
 

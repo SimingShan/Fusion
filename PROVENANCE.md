@@ -62,6 +62,14 @@ Compiled 2026-10-09 from Slurm accounting (`sacct -o SubmitLine`), manifests, ru
 28. `WARP_SRC=... BAR=0 BAZ=0.5 REG=pred_direct_vf60g_test.npy export_warp_z.py 20261009-106 0.5 1` (copies MAST payload from candidate 085).
 29. `scripts/package_dual_submission.py` -> `submission.zip`.
 
+## H. Consistency-scalar heads (HLVF members, 2026-10-10/11)
+30. Dev-row label-map scalars and the 9-scalar all-labelled view: `heads_217/dev_targets.py` + `heads_217/make_heads_view.py` (prepare.sh step 8)
+    -> `data/pod_history128_alllab_vf_heads_v1` (bitwise equal to the view the members were trained on).
+31. HLVF x24 (seeds 6301-6324): `train_members.py HLVF 0 0 --seeds 6301:4 ... --parallel 4 --out members_heads` (package root; 6 jobs
+    2797594-2797599, one H100 80GB each, 44-47 min per batch of 4); configs/HLVF.json; heads exported to `test/diii_d_public_test_heads.npz`.
+32. Head targets at prediction time: `heads_217/heads_targets.py` (Z target = (heads + regressors)/2; kappa: `make_targets.py HEADS=`).
+33. Submitted as candidate 20261011-115 (public leaderboard 0.996400), built by `predict.sh` with the rehearsal's regressors and closure.
+
 ## Gaps to close for a reproduction package
 1. Script the gated-NaN regressor file (step 23).
 2. Closure files hand-copied; basis512 needs the AE run; closure RNG depends on run order.

@@ -72,8 +72,8 @@ class PODDeepONet(nn.Module):
         linear_skip: Learn a direct input-to-output linear map in parallel.
 
     ``forward(x)`` returns ``coefficients`` with shape (B, K), ``scalars`` with
-    shape (B, 2), and optionally ``flux_residual`` with shape (B, Z, R). The
-    scalars are ordered q95, betaN. Normalization and denormalization of all
+    shape (B, n_scalars), and optionally ``flux_residual`` with shape (B, Z, R). The
+    scalars are ordered q95, betaN[, then the extra heads of the view, e.g. the seven consistency scalars]. Normalization and denormalization of all
     outputs are the caller's responsibility.
     """
 
@@ -81,7 +81,7 @@ class PODDeepONet(nn.Module):
                  depth: int = 4, dropout: float = 0.0,
                  normalization: str = "layer", trunk_rank: int = 0,
                  grid_shape: Sequence[int] = (65, 65), trunk_width: int = 128,
-                 linear_skip: bool = True) -> None:
+                 linear_skip: bool = True, n_scalars: int = 2) -> None:
         super().__init__()
         if min(input_dim, n_coefficients, width, depth, trunk_width) < 1:
             raise ValueError("Model dimensions and depth must be positive")
@@ -101,10 +101,10 @@ class PODDeepONet(nn.Module):
         self.coefficient_head = nn.Linear(width, n_coefficients)
         self.scalar_head = nn.Sequential(
             nn.Linear(width, width // 2 or 1), nn.GELU(),
-            nn.Linear(width // 2 or 1, 2),
+            nn.Linear(width // 2 or 1, n_scalars),
         )
         self.linear_coefficients = nn.Linear(input_dim, n_coefficients) if linear_skip else None
-        self.linear_scalars = nn.Linear(input_dim, 2) if linear_skip else None
+        self.linear_scalars = nn.Linear(input_dim, n_scalars) if linear_skip else None
         for head in (self.linear_coefficients, self.linear_scalars):
             if head is not None:
                 nn.init.zeros_(head.weight)

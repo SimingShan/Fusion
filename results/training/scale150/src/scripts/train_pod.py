@@ -146,6 +146,9 @@ def target_field(coefficients, norm):
 AUTOCAST_BF16 = False   # set from --bf16: bfloat16 autocast for the model forward only (losses stay fp32)
 
 
+HEADS_W = 1.0   # set from --heads-weight in main()
+
+
 def batch_loss(model, batch, norm, Q, scalar_weight, full_psi=None, field_gradient_weight=0.1, return_parts=False,
                li_module=None, li_positions=None, li_targets=None, li_weight=0.0,
                geometry_module=None, geometry_weight=0.0, exact_axis_module=None, exact_axis_weight=0.0,
@@ -172,8 +175,14 @@ def batch_loss(model, batch, norm, Q, scalar_weight, full_psi=None, field_gradie
     finite = torch.isfinite(batch["scalars"])
     scalar_error = pred["scalars"] - torch.nan_to_num(batch["scalars"], nan=0.0, posinf=0.0, neginf=0.0)
     scalar_weights = finite if frame_weights is None else finite * frame_weights[:, None]
-    scalar_sse = (scalar_error.square() * scalar_weights).sum()
-    scalar_count = scalar_weights.sum()
+    if scalar_weights.shape[1] > 2:   # extra heads: q95/betaN term exactly as with 2 scalars, extra heads add HEADS_W x their SSE
+        scalar_weights = scalar_weights.float()
+        scalar_count = scalar_weights[:, :2].sum()
+        colw = torch.ones(scalar_weights.shape[1], device=scalar_weights.device); colw[2:] = HEADS_W
+        scalar_sse = (scalar_error.square() * scalar_weights * colw).sum()
+    else:
+        scalar_sse = (scalar_error.square() * scalar_weights).sum()
+        scalar_count = scalar_weights.sum()
     field = None
     if full_psi is not None:
         field = reconstruct(model, pred, norm)
@@ -315,7 +324,7 @@ def write_predictions(model, norm, data_dir, split, output, batch_size, device, 
     tnorm = torch_normalization(norm, device)
     entries = prediction_entries(data_dir, split) if split == "test" else split_entries(data_dir, split)
     temporary = output.with_suffix(".tmp.npz")
-    frames = 0
+    frames = 0; heads = {}
     with zipfile.ZipFile(temporary, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=1, allowZip64=True) as archive:
         for i, entry in enumerate(entries):
             with np.load(data_dir / entry["path"], allow_pickle=False) as shot:
@@ -342,17 +351,21 @@ def write_predictions(model, norm, data_dir, split, output, batch_size, device, 
                     field_parts.append(field)
                     scalar_parts.append(scalars)
                 field, scalars = np.concatenate(field_parts), np.concatenate(scalar_parts)
-                if field.shape != (entry["n_frames"], 65, 65) or scalars.shape != (entry["n_frames"], 2):
+                if field.shape != (entry["n_frames"], 65, 65) or scalars.shape[0] != entry["n_frames"] or scalars.shape[1] < 2:
                     raise ValueError(f"Invalid prediction shape: {entry}")
                 if not np.isfinite(field).all() or not np.isfinite(scalars).all():
                     raise ValueError(f"Nonfinite predictions: {entry}")
                 for name, array in (("psirz", field), ("q95", scalars[:, 0]), ("betaN", scalars[:, 1])):
                     with archive.open(f"shot_{i:04d}_{name}.npy", "w", force_zip64=True) as stream:
                         np.lib.format.write_array(stream, array.astype(np.float32), allow_pickle=False)
+                if scalars.shape[1] > 2:   # extra scalar heads go to a sidecar (<payload>_heads.npz); the payload stays standard
+                    heads[f"shot_{i:04d}_heads"] = scalars[:, 2:].astype(np.float32)
                 frames += len(x)
             if (i + 1) % 100 == 0:
                 print(f"Predicted {split}: {i + 1}/{len(entries)} shots", flush=True)
     temporary.replace(output)
+    if heads:
+        np.savez(output.with_name(output.stem + "_heads.npz"), **heads)
     print(f"Wrote {output}: {len(entries)} shots, {frames} frames", flush=True)
 
 
@@ -439,6 +452,8 @@ def main():
                    help="Trace-normalised weight of the envelope-weighted Grad-Shafranov-operator (current density) term of the coefficient loss")
     p.add_argument("--field-gradient-weight", type=float, default=0.1)
     p.add_argument("--scalar-weight", type=float, default=0.25)
+    p.add_argument("--heads-weight", type=float, default=1.0,
+                   help="per-entry loss weight of scalar heads beyond q95/betaN (views with more than 2 scalar columns); the q95/betaN term is unchanged")
     p.add_argument("--ridge-alpha", type=float, default=-1.0,
                    help="Negative disables ridge warm start; optional nonnegative penalty fits the linear skips")
     p.add_argument("--li-dir", type=Path, help="Optional fixed training-contour internal-inductance targets")
@@ -573,6 +588,10 @@ def main():
         norm = dict(saved)
     kwargs = dict(input_dim=len(norm["feature_indices"]), n_coefficients=len(norm["basis"]),
                   width=args.width, depth=args.depth, dropout=args.dropout)
+    if len(norm["scalar_std"]) != 2:   # views with extra scalar heads (q95, betaN + consistency scalars)
+        kwargs["n_scalars"] = int(len(norm["scalar_std"]))
+    global HEADS_W
+    HEADS_W = args.heads_weight
     if args.model == "pod_attention":
         kwargs.update(attention_dim=args.attention_dim, attention_latents=args.attention_latents,
                       attention_heads=args.attention_heads, cross_layers=args.cross_layers,
