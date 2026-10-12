@@ -141,7 +141,11 @@ def adjust(psi, k_tgt):
 def job(arg):
     key, first = arg; psi = PAY[key].astype(np.float64); out = np.empty(psi.shape, np.float32); st = []
     for j in range(len(psi)):
-        new, s, k = adjust(psi[j], float(TGT[first + j])); out[j] = new; st.append((s, k))
+        try:
+            new, s, k = adjust(psi[j], float(TGT[first + j]))
+        except Exception:   # unexpected geometry: leave the frame unchanged
+            new, s, k = psi[j], "error", 1.0
+        out[j] = new; st.append((s, k))
     return key, out, st
 
 

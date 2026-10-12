@@ -86,7 +86,11 @@ def job(arg):
         j = first + k
         if SKIP is not None and SKIP[j]:
             outp[k] = psi[k]; rows.append(("gated", 0.0, np.nan, np.nan, 0.0)); continue
-        new, st, a, l0, l1, rc = adjust(psi[k], float(TGT[j])); outp[k] = new; rows.append((st, a, l0, l1, rc))
+        try:
+            new, st, a, l0, l1, rc = adjust(psi[k], float(TGT[j]))
+        except Exception:   # unexpected geometry: leave the frame unchanged
+            new, st, a, l0, l1, rc = psi[k], "error", 0.0, np.nan, np.nan, 0.0
+        outp[k] = new; rows.append((st, a, l0, l1, rc))
     return key, outp, rows
 
 
