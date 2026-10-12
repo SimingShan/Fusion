@@ -16,6 +16,8 @@ LVF_LIST=$(seeds "${LVF_SEEDS:-$LVF_DEFAULT}"); LAV_LIST=$(seeds "${LAV_SEEDS:-$
 Z_BETA=${Z_BETA:-0.75}   # Z-shift strength toward the heads/regressor target (0.5 toward the regressors alone without heads)
 LI_B=${LI_B:-0.35}   # li adjustment strength (0 = off)
 KAPPA_B=${KAPPA_B:-0.5}   # elongation adjustment strength (0 = off)
+KAPPA_MODE=${KAPPA_MODE:-loc}   # loc = radial compression localised at the plasma width extremes (submitted); r = whole-plasma radial compression (earlier entries)
+TRI_B=${TRI_B:-0}   # optional triangularity shift through Rgeo after the elongation step (0 = off)
 declare -A TEST_VIEW=([LVF]=data/advanced_history_test_vf_v1 [HLVF]=data/advanced_history_test_vf_v1 [LAV]=data/advanced_test_vessel_v1 [HLAV]=data/advanced_test_vessel_v1)
 
 export_member() {   # member test predictions from the local endpoint, else from the published checkpoint
@@ -60,8 +62,14 @@ if [ "$KAPPA_B" != "0" ]; then
   { for s in $LVF_LIST; do echo "1 $M/${LF}_s$s/test/diii_d_public_test.npz"; done; for s in $LAV_LIST; do echo "1 $M/${LAF}_s$s/test/diii_d_public_test.npz"; done; } > "$C/members_test.txt"
   NO_LI=1 $PY -u $J/member_scalars.py "$C/members_test.txt" "$C/member_scalars.npz" "$C/diii_d_public_test.npz" "${KAPPA_WORKERS:-8}"
   HEADS="$HEADS_ENV" AGREE=1 LIB=$LI_B $PY $J/make_targets.py results/analysis/scalar_probe_160/pred_direct_vf60g_test.npy "$C/tgt" "$C/member_scalars.npz"
-  KMODE=r $PY -u $J/kappa_adjust3.py "$C/diii_d_public_test.npz" "$C/diii_d_public_test_k.npz" "$C/tgt_kappa.npy" "$KAPPA_B" "${KAPPA_WORKERS:-8}" 1.4
+  KMODE=$KAPPA_MODE $PY -u $J/kappa_adjust4.py "$C/diii_d_public_test.npz" "$C/diii_d_public_test_k.npz" "$C/tgt_kappa.npy" "$KAPPA_B" "${KAPPA_WORKERS:-8}" 1.4
   mv "$C/diii_d_public_test_k.npz" "$C/diii_d_public_test.npz"
+  if [ "$TRI_B" != "0" ]; then   # both width extremes moved by the same amount (width, kappa fixed): triangularities toward the member mean,
+    # only where the member mean and the regressors agree on the direction; realised mean triangularity verified; Thomson-poor frames never
+    $PY $J/make_tri_targets.py results/analysis/scalar_probe_160/pred_direct_vf60g_test.npy "$C/member_scalars.npz" "$C/tgt_tri.npy"
+    TRELAX=1 TKTOL=5e-4 $PY -u $J/tri_shift.py "$C/diii_d_public_test.npz" "$C/diii_d_public_test_t.npz" "$C/tgt_tri.npy" "$TRI_B" "${KAPPA_WORKERS:-8}" 1.4
+    mv "$C/diii_d_public_test_t.npz" "$C/diii_d_public_test.npz"
+  fi
   LI_TGT="$C/tgt_li.npy"; LI_FRAC=1.0   # li target anchored on the pre-elongation li: li_base + LI_B (li_direct - li_base), realised exactly
 fi
 if [ "$LI_B" != "0" ]; then   # boundary-preserving li adjustment toward the direct regressors' li (fraction LI_B; Thomson-poor frames untouched)

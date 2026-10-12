@@ -38,7 +38,9 @@ Next, the elongation is corrected. Each member's own map gives its own kappa (th
 is a better kappa estimate than the kappa of the averaged map, because averaging maps blurs the boundary shape. The target is the mean
 of this member-mean kappa, the 64 members' head kappa and the direct regressors' kappa, applied only on frames where all three agree on the
 direction of the change (about 54% of frames; Thomson-poor frames never). The map is compressed or expanded radially about the magnetic axis, inside the plasma
-(weight 1 inside the separatrix, smoothly 0 by psi_N = 1.4), with the factor found per frame by root-finding so that the kappa read off
+(weight 1 inside the separatrix, smoothly 0 by psi_N = 1.4) and only near the heights of the separatrix's inboard and outboard extremes (Gaussian
+weight in Z, 0.25 m, each side on its own side of the axis): kappa is read from the four extreme points, so compressing the whole
+cross-section (the earlier variant) moved the volume for nothing; localising the compression keeps the kappa gain and most of the volume, with the factor found per frame by root-finding so that the kappa read off
 the map moves half-way to the target; the realised value of the written float32 map is re-checked, because the separatrix extraction
 can jump near the X-point, and frames without an admissible solution are left unchanged. Changing the width rather than the height
 matters: vertical stretches move the X-point and worsen the separatrix distance, radial compression does not.
@@ -61,9 +63,11 @@ legacy). Replacing the 24 head-less history members by the HLVF members and usin
 scored 0.996400 (+0.000021: kappa R^2 +0.00025, li +0.00017, Z_axis +0.00004, q95 +0.00007; development with train-only analogues:
 axis shift +0.000013 native / +0.00011 legacy, elongation +0.000004 / +0.000003). Giving the no-history members the heads as well
 (HLAV; head targets from all 64 members) scored 0.996423 (+0.000023: Z_axis +0.00021, li +0.00021, volume +0.00019, q95 +0.00008,
-betaN +0.00004, kappa -0.00009). Measured contributions on the public leaderboard:
+betaN +0.00004, kappa -0.00009). Localising the elongation step at the width extremes (submitted configuration) scored 0.996439
+(+0.000016: volume R^2 +0.00041, kappa +0.00015, lower triangularity +0.00003; development: native +0.000077 vs +0.000064, legacy
++0.000064 vs +0.000060 for the whole-plasma step). Measured contributions on the public leaderboard:
 vessel features -0.00032 D_LCFS and +0.00017 consistency; future features and the axis shift +0.00006 to +0.00008 S; li adjustment
-+0.00006 S; elongation adjustment +0.00005 S; consistency-scalar heads +0.00004 S (history members +0.00002, no-history members +0.00002).
++0.00006 S; elongation adjustment +0.00005 S (+0.00002 more when localised); consistency-scalar heads +0.00004 S (history members +0.00002, no-history members +0.00002).
 
 ## Compute
 Training is about 15 A100-minutes per member when four members share one GPU. A complete from-scratch run of the 64-member entry
@@ -77,6 +81,7 @@ physics decoders and GS losses, geometry/kappa/axis losses, open-loop post-hoc s
 stretches, closed-loop triangularity corrections (ill-conditioned: the separatrix level moves instead of the vertex), member reweighting
 or trimming, temporal
 smoothing, li heads on the members' hidden features, consistency-scalar heads at a large loss weight (they then degrade the flux map),
-physics q95 from the predicted map's flux surfaces, learned per-frame combinations of the scalar estimates, and additional input families (Thomson dynamics, long-horizon future,
+physics q95 from the predicted map's flux surfaces, a stronger li adjustment (0.5 instead of 0.35: public -0.000007), local
+warps of the separatrix corners toward member-mean X-point positions (the extraction amplifies edits near the X-point), learned per-frame combinations of the scalar estimates, and additional input families (Thomson dynamics, long-horizon future,
 current-diffusion simulations, fast fluctuation power). More members help only slowly (43 -> 86: +0.000008 public), because the
 members share their errors; 64 members fit the GPU budget with margin.

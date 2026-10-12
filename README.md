@@ -37,8 +37,10 @@ Under a batch scheduler, set `FUSION_ROOT` explicitly (job scripts run from a sp
   Thomson-poor frames. The separatrix is untouched.
 - **Elongation adjustment** (`results/analysis/jkappa_211/`): `member_scalars.py` reads the scorer's kappa off every member's own map;
   the target is the mean of that member-mean kappa, the 64 members' head kappa and the regressors' kappa, used only where all three agree on
-  the direction (`make_targets.py`, `HEADS=`); `kappa_adjust3.py` (KMODE=r) compresses/expands the map radially about the axis inside the plasma, solving per
-  frame so the map's kappa moves half-way to the target (`KAPPA_B=0.5`; realised value verified; Thomson-poor frames skipped).
+  the direction (`make_targets.py`, `HEADS=`); `kappa_adjust4.py` (`KAPPA_MODE=loc`) compresses/expands the map radially about the axis, localised in
+  height around the plasma's inboard and outboard extremes (the only points kappa is read from; Gaussian weight, 0.25 m), solving per
+  frame so the map's kappa moves half-way to the target (`KAPPA_B=0.5`; realised value verified; Thomson-poor frames skipped). Compressing
+  the whole cross-section instead (`KAPPA_MODE=r`, earlier entries) gives the same kappa but costs volume accuracy.
 - **li adjustment** (`results/analysis/lihead_210/li_adjust.py`): inside the separatrix the normalised flux s is remapped,
   h(s) = s + a s (1 - s)^2 (axis value, separatrix level and edge gradient unchanged), with `a` solved per frame so that the internal
   inductance computed from the map (the scorer's li(2) definition) moves 35% of the way toward the regressors' li (measured from the li
@@ -87,8 +89,8 @@ split, no MAST labels or MAST training data. Inputs only: coil currents, plasma 
 Training is reproducible statistically, not bitwise: GPU floating-point summation order differs between GPU types, and over 600 cold
 epochs this makes a rebuilt member a fresh draw of the same distribution. On the same GPU type a rebuild stays close to the original
 (test-flux relative difference 0.002 vs 0.010 between seeds); across GPU types it differs like another seed. Two independent 43-member
-draws of an earlier recipe scored within 0.000004 of each other, two independent 64-member draws of the submitted all-heads recipe
-(seeds 6301-6324 / 7401-7440 and 6401-6424 / 7501-7540) scored 0.996423 and 0.996422 on the public leaderboard, and a complete from-scratch rebuild of the previous
+draws of an earlier recipe scored within 0.000004 of each other, two independent 64-member draws of the all-heads recipe
+(seeds 6301-6324 / 7401-7440 and 6401-6424 / 7501-7540; whole-plasma elongation step) scored 0.996423 and 0.996422 on the public leaderboard, and a complete from-scratch rebuild of the previous
 (head-less) 64-member entry (fresh clone; `prepare.sh`, `train.sh` on one A100 80GB PCIe, `predict.sh`; every member, regressor and the
 closure retrained) scored 0.996379 on the public leaderboard, identical to the original entry's 0.996379. Inference from given weights is deterministic on
 the same CPU type and thread count; with another thread count the closure network's float32 products round differently (flux
