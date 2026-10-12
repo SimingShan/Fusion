@@ -76,7 +76,10 @@ bash prepare_test.sh /path/to/new_test_parquet_dir          # CPU: install the s
 MEMBERS_DIR=members_final WEIGHTS=weights bash predict.sh final_private
 ```
 Verified with the public test as a stand-in: the rebuilt test views and features were bit-identical to `prepare.sh`'s (6,153 arrays).
-The submitted entry (public 0.996423) was re-run from a fresh clone of this repository with only `weights/` (no local training
+The submitted configuration (public 0.996443) was re-run with this repository's `predict.sh` from a fresh clone on the same member
+test exports: the prediction matched the submitted one to 1.4e-10 of the flux variance (q95/betaN identical; 21 of 193,359 frames differ
+where a closed-loop step branched differently, from thread-count-dependent float32 rounding in the closure). The earlier entry (public
+0.996423) was re-run from a fresh clone of this repository with only `weights/` (no local training
 outputs) and CPU-only member exports: the prediction matched the submitted one to 1.3e-8 of the flux variance (q95/betaN within 5e-6,
 head targets within 2e-6), with the same per-frame decision in the elongation and li steps on all but ~100 of 193,359 frames (CPU
 float32 versus GPU bfloat16 member exports). One member exports in ~2.5 min on 8 CPU cores, so no GPU is needed for inference; the
