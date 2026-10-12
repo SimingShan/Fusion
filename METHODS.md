@@ -45,6 +45,12 @@ the map moves half-way to the target; the realised value of the written float32 
 can jump near the X-point, and frames without an admissible solution are left unchanged. Changing the width rather than the height
 matters: vertical stretches move the X-point and worsen the separatrix distance, radial compression does not.
 
+Then both width extremes are moved radially by the same amount (same localisation, zero at the axis): the width and kappa stay, the
+geometric centre moves, and both triangularities change by about the shift over the minor radius. The shift is solved per frame so the
+map's mean triangularity moves half-way to the members' own mean triangularity, only where the members and the direct regressors agree
+on the direction. The triangularities themselves are read at grid-column-quantised vertices, so moving the vertices does not work; the
+geometric centre is continuous. About 14% of frames are left unchanged because the contour resampling jitters the vertices.
+
 Last, the internal inductance is adjusted without moving the separatrix or the axis. Inside the separatrix the normalised flux
 s = (psi_axis - psi)/(psi_axis - psi_b) is remapped as h(s) = s + a s (1 - s)^2, which keeps the axis value, the separatrix level and
 the edge gradient (h(1) = 1, h'(1) = 1). For each frame, `a` is found by root-finding so that li computed from the remapped map
@@ -65,7 +71,9 @@ axis shift +0.000013 native / +0.00011 legacy, elongation +0.000004 / +0.000003)
 (HLAV; head targets from all 64 members) scored 0.996423 (+0.000023: Z_axis +0.00021, li +0.00021, volume +0.00019, q95 +0.00008,
 betaN +0.00004, kappa -0.00009). Localising the elongation step at the width extremes (submitted configuration) scored 0.996439
 (+0.000016: volume R^2 +0.00041, kappa +0.00015, lower triangularity +0.00003; development: native +0.000077 vs +0.000064, legacy
-+0.000064 vs +0.000060 for the whole-plasma step). Measured contributions on the public leaderboard:
++0.000064 vs +0.000060 for the whole-plasma step). Adding the triangularity shift through the geometric centre (submitted configuration)
+scored 0.996443 (+0.000004: triangularity R^2 +0.00018 upper / +0.00011 lower, li -0.00004, D_LCFS +0.00003; development +0.000006 native,
++0.000004 legacy). Measured contributions on the public leaderboard:
 vessel features -0.00032 D_LCFS and +0.00017 consistency; future features and the axis shift +0.00006 to +0.00008 S; li adjustment
 +0.00006 S; elongation adjustment +0.00005 S (+0.00002 more when localised); consistency-scalar heads +0.00004 S (history members +0.00002, no-history members +0.00002).
 
@@ -78,7 +86,7 @@ all 64 members, elongation and li adjustments) about 5 h on 10 cores.
 ## What did not help
 Things we tested on the official scorer that did not help: larger output rank, U-Net and transformer members, Green's-function/GS
 physics decoders and GS losses, geometry/kappa/axis losses, open-loop post-hoc stretches, vertical (instead of radial) closed-loop
-stretches, closed-loop triangularity corrections (ill-conditioned: the separatrix level moves instead of the vertex), member reweighting
+stretches, closed-loop triangularity corrections that move the vertices (ill-conditioned: the separatrix level moves instead of the vertex), member reweighting
 or trimming, temporal
 smoothing, li heads on the members' hidden features, consistency-scalar heads at a large loss weight (they then degrade the flux map),
 physics q95 from the predicted map's flux surfaces, a stronger li adjustment (0.5 instead of 0.35: public -0.000007), local

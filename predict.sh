@@ -17,7 +17,7 @@ Z_BETA=${Z_BETA:-0.75}   # Z-shift strength toward the heads/regressor target (0
 LI_B=${LI_B:-0.35}   # li adjustment strength (0 = off)
 KAPPA_B=${KAPPA_B:-0.5}   # elongation adjustment strength (0 = off)
 KAPPA_MODE=${KAPPA_MODE:-loc}   # loc = radial compression localised at the plasma width extremes (submitted); r = whole-plasma radial compression (earlier entries)
-TRI_B=${TRI_B:-0}   # optional triangularity shift through Rgeo after the elongation step (0 = off)
+TRI_B=${TRI_B:-0.5}   # triangularity shift through Rgeo after the elongation step (0 = off)
 declare -A TEST_VIEW=([LVF]=data/advanced_history_test_vf_v1 [HLVF]=data/advanced_history_test_vf_v1 [LAV]=data/advanced_test_vessel_v1 [HLAV]=data/advanced_test_vessel_v1)
 
 export_member() {   # member test predictions from the local endpoint, else from the published checkpoint

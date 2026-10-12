@@ -41,6 +41,10 @@ Under a batch scheduler, set `FUSION_ROOT` explicitly (job scripts run from a sp
   height around the plasma's inboard and outboard extremes (the only points kappa is read from; Gaussian weight, 0.25 m), solving per
   frame so the map's kappa moves half-way to the target (`KAPPA_B=0.5`; realised value verified; Thomson-poor frames skipped). Compressing
   the whole cross-section instead (`KAPPA_MODE=r`, earlier entries) gives the same kappa but costs volume accuracy.
+- **Triangularity shift** (`results/analysis/jkappa_211/tri_shift.py`, `TRI_B=0.5`): after the elongation step, both width extremes are moved
+  by the same radial amount (localised like the elongation step, zero at the axis), which moves the geometric centre and therefore both
+  triangularities without changing the width or kappa; solved per frame so the map's mean triangularity moves half-way to the member
+  mean (`make_tri_targets.py`; only where the member mean and the regressors agree on the direction; Thomson-poor frames skipped).
 - **li adjustment** (`results/analysis/lihead_210/li_adjust.py`): inside the separatrix the normalised flux s is remapped,
   h(s) = s + a s (1 - s)^2 (axis value, separatrix level and edge gradient unchanged), with `a` solved per frame so that the internal
   inductance computed from the map (the scorer's li(2) definition) moves 35% of the way toward the regressors' li (measured from the li
