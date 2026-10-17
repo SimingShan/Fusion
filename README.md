@@ -99,7 +99,7 @@ epochs this makes a rebuilt member a fresh draw of the same distribution. On the
 draws of an earlier recipe scored within 0.000004 of each other, two independent 64-member draws of the all-heads recipe
 (seeds 6301-6324 / 7401-7440 and 6401-6424 / 7501-7540; whole-plasma elongation step) scored 0.996423 and 0.996422 on the public leaderboard, and a complete from-scratch rebuild of the previous
 (head-less) 64-member entry (fresh clone; `prepare.sh`, `train.sh` on one A100 80GB PCIe, `predict.sh`; every member, regressor and the
-closure retrained) scored 0.996379 on the public leaderboard, identical to the original entry's 0.996379. Inference from given weights is deterministic on
+closure retrained) scored 0.996379 on the public leaderboard, identical to the original entry's 0.996379. A complete from-scratch rebuild of the SUBMITTED recipe (64 head members, regressors and closure retrained on one A100 80GB PCIe, then this repository's `predict.sh`) scored 0.996456 on the public leaderboard against 0.996446 for the submitted weights. Inference from given weights is deterministic on
 the same CPU type and thread count; with another thread count the closure network's float32 products round differently (flux
 differences up to ~1e-4 on ~5% of frames, 2e-13 of the field variance; scalar predictions identical), which does not change the score.
 
