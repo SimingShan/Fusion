@@ -71,9 +71,10 @@ axis shift +0.000013 native / +0.00011 legacy, elongation +0.000004 / +0.000003)
 (HLAV; head targets from all 64 members) scored 0.996423 (+0.000023: Z_axis +0.00021, li +0.00021, volume +0.00019, q95 +0.00008,
 betaN +0.00004, kappa -0.00009). Localising the elongation step at the width extremes (submitted configuration) scored 0.996439
 (+0.000016: volume R^2 +0.00041, kappa +0.00015, lower triangularity +0.00003; development: native +0.000077 vs +0.000064, legacy
-+0.000064 vs +0.000060 for the whole-plasma step). Adding the triangularity shift through the geometric centre (submitted configuration)
++0.000064 vs +0.000060 for the whole-plasma step). Adding the triangularity shift through the geometric centre
 scored 0.996443 (+0.000004: triangularity R^2 +0.00018 upper / +0.00011 lower, li -0.00004, D_LCFS +0.00003; development +0.000006 native,
-+0.000004 legacy). Measured contributions on the public leaderboard:
++0.000004 legacy). Raising the axis Z-shift strength from 0.75 to 1.0 (submitted configuration) scored 0.996446 (+0.000003, Z_axis and
+consistency +0.000015; development: native tie, legacy +0.000048); this is within the seed-to-seed spread of an entry. Measured contributions on the public leaderboard:
 vessel features -0.00032 D_LCFS and +0.00017 consistency; future features and the axis shift +0.00006 to +0.00008 S; li adjustment
 +0.00006 S; elongation adjustment +0.00005 S (+0.00002 more when localised); consistency-scalar heads +0.00004 S (history members +0.00002, no-history members +0.00002).
 
@@ -93,3 +94,12 @@ physics q95 from the predicted map's flux surfaces, a stronger li adjustment (0.
 warps of the separatrix corners toward member-mean X-point positions (the extraction amplifies edits near the X-point), learned per-frame combinations of the scalar estimates, and additional input families (Thomson dynamics, long-horizon future,
 current-diffusion simulations, fast fluctuation power). More members help only slowly (43 -> 86: +0.000008 public), because the
 members share their errors; 64 members fit the GPU budget with margin.
+
+## Use of the development leaderboard and of AI assistance
+
+Development-phase scores returned by the platform for our own DIII-D submissions were used to choose between post-processing
+configurations (each change was first required to improve both held-out development folds, then confirmed on the public leaderboard).
+No prediction was edited by hand or tuned to an individual test frame, and no MAST data or MAST feedback is used by this entry.
+AI coding assistance: the code, experiments, analysis and documentation of this entry were developed with Anthropic's Claude Code
+(Claude models) working as a coding agent under the entrant's direction; the entrant reviewed the work and takes responsibility for the
+submission.

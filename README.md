@@ -55,10 +55,10 @@ Under a batch scheduler, set `FUSION_ROOT` explicitly (job scripts run from a sp
 | stage | measured / derived |
 |---|---|
 | one member, 4 members sharing one GPU | A100 80GB: 15.7 GPU-min (LVF), 15.3 GPU-min (LAV) (measured, one full batch each); HLVF = LVF (7 extra outputs; H100 batches of 4: 44-47 min, as LVF) |
-| 64 members (24 HLVF + 40 HLAV, 16 full batches of 4) | **measured on one A100 80GB PCIe**: 24 HLVF 5.79 h; 40 LAV 10.03 h (head-less, same cost as HLAV); ~11.3 h on one H100 |
+| 64 members (24 HLVF + 40 HLAV, 16 full batches of 4) | **measured on one A100 80GB PCIe**: 24 HLVF 5.79 h; 40 HLAV 10.61 h (40 head-less LAV 10.03 h); ~11.3 h on one H100 |
 | direct regressors | 8.2 min (A100 PCIe, measured); 5.5 min (H100) |
 | closure (POD-512 + autoencoder ceilings + closure net) | 43 min (A100 PCIe, measured); 30 min (H100) |
-| **total** | **16.72 A100-hours measured end to end** (24 h cap); ~11.9 H100-hours |
+| **total** | **17.4 A100-hours measured for the submitted 64-member recipe** (5.79 + 10.61 + 0.27 + 0.76; 16.72 for the head-less families end to end; 24 h cap); ~11.9 H100-hours |
 
 `train.sh` writes `gpu_timing.json`. Measured end to end on one NVIDIA A100 80GB PCIe (2026-10-10/11, a fresh clone, `prepare.sh`
 then `train.sh` with the 64-member defaults): `{"members_LVF_hours": 5.837, "members_LAV_hours": 10.029, "direct_regressors_hours":
@@ -73,10 +73,10 @@ on 10 cores) are not budgeted.
 The final phase scores a private test split that is not part of the public dataset. With `prepare.sh` already run:
 ```bash
 bash prepare_test.sh /path/to/new_test_parquet_dir          # CPU: install the shots, rebuild every test-derived view and feature
-MEMBERS_DIR=members_final WEIGHTS=weights bash predict.sh final_private
+SUBMIT_NAME=diii_d_private_test MEMBERS_DIR=members_final WEIGHTS=weights bash predict.sh final_private   # ZIP member name per the final-phase guide
 ```
 Verified with the public test as a stand-in: the rebuilt test views and features were bit-identical to `prepare.sh`'s (6,153 arrays).
-The submitted configuration (public 0.996443) was re-run with this repository's `predict.sh` from a fresh clone on the same member
+The previous configuration (public 0.996443; the submitted one differs only in `Z_BETA` 1.0, public 0.996446) was re-run with this repository's `predict.sh` from a fresh clone on the same member
 test exports: the prediction matched the submitted one to 1.4e-10 of the flux variance (q95/betaN identical; 21 of 193,359 frames differ
 where a closed-loop step branched differently, from thread-count-dependent float32 rounding in the closure). The earlier entry (public
 0.996423) was re-run from a fresh clone of this repository with only `weights/` (no local training

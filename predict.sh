@@ -13,7 +13,7 @@ if [ "$LF" = "HLVF" ]; then LVF_DEFAULT=6301:24; else LVF_DEFAULT=6001:17,6101:7
 LAF=${LAV_FAMILY:-HLAV}   # A-family members: HLAV = LAV recipe + consistency-scalar heads (submitted entry); LAV = without heads
 if [ "$LAF" = "HLAV" ]; then LAV_DEFAULT=7401:40; else LAV_DEFAULT=7101:26,7201:14; fi
 LVF_LIST=$(seeds "${LVF_SEEDS:-$LVF_DEFAULT}"); LAV_LIST=$(seeds "${LAV_SEEDS:-$LAV_DEFAULT}")   # start:count[,start:count]
-Z_BETA=${Z_BETA:-0.75}   # Z-shift strength toward the heads/regressor target (0.5 toward the regressors alone without heads)
+Z_BETA=${Z_BETA:-1.0}   # Z-shift strength toward the heads/regressor target (submitted 1.0; 0.75 in entries up to 0.996443; 0.5 toward the regressors alone without heads)
 LI_B=${LI_B:-0.35}   # li adjustment strength (0 = off)
 KAPPA_B=${KAPPA_B:-0.5}   # elongation adjustment strength (0 = off)
 KAPPA_MODE=${KAPPA_MODE:-loc}   # loc = radial compression localised at the plasma width extremes (submitted); r = whole-plasma radial compression (earlier entries)
@@ -77,5 +77,8 @@ if [ "$LI_B" != "0" ]; then   # boundary-preserving li adjustment toward the dir
   $PY -u results/analysis/lihead_210/li_adjust.py "$C/diii_d_public_test.npz" "$C/diii_d_public_test_li.npz" "$LI_TGT" "$LI_FRAC" - "${LI_WORKERS:-8}"
   mv "$C/diii_d_public_test_li.npz" "$C/diii_d_public_test.npz"
 fi
-$PY -u scripts/package_submission.py --pred "$C/diii_d_public_test.npz" --output "$C/submission.zip"
+# The test split is addressed by the config name diii_d_public_test (prepare_test.sh installs new test inputs under it); the ZIP's
+# NPZ name and the shot count follow the installed inputs: SUBMIT_NAME=diii_d_private_test for the final phase's private split.
+NSHOTS=$(ls data/raw/data/diii_d_public_test/*.parquet | wc -l)
+$PY -u scripts/package_submission.py --pred "$C/diii_d_public_test.npz" --output "$C/submission.zip" --expected-shots "$NSHOTS" --member-name "${SUBMIT_NAME:-diii_d_public_test}"
 sha256sum "$C/submission.zip"

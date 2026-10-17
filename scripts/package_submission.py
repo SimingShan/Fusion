@@ -173,8 +173,14 @@ def main():
     parser.add_argument("--pred", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--raw-dir", type=Path, default=Path("data/raw"))
-    parser.add_argument("--config", choices=tuple(MACHINE_SHOTS), default=CONFIG)
+    parser.add_argument("--config", choices=tuple(MACHINE_SHOTS), default=CONFIG,
+                        help="dataset config whose installed raw shots define the expected keys and frame counts")
+    parser.add_argument("--expected-shots", type=int, default=None,
+                        help="override the config's shot count (new test inputs installed under the config name)")
+    parser.add_argument("--member-name", default=None,
+                        help="NPZ name inside the ZIP without .npz (default: the config name)")
     args = parser.parse_args()
+    shots = args.expected_shots or MACHINE_SHOTS[args.config]; member = args.member_name or args.config
     if args.pred.resolve() == args.output.resolve():
         parser.error("--output must differ from --pred")
     args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -188,9 +194,9 @@ def main():
               "created_utc": datetime.now(timezone.utc).isoformat()}
     try:
         signature = file_signature(args.pred)
-        report.update(validate_prediction(args.pred, args.raw_dir, MACHINE_SHOTS[args.config], args.config))
+        report.update(validate_prediction(args.pred, args.raw_dir, shots, args.config))
         print("Writing direct-upload ZIP and computing SHA256 hashes...", flush=True)
-        report.update(package(args.pred, args.output, signature, args.config))
+        report.update(package(args.pred, args.output, signature, member))
         report["elapsed_seconds"] = time.monotonic() - started
         write_json_atomic(report_path, report)
     except Exception as exc:
