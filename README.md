@@ -114,3 +114,13 @@ package's own `train_members.py`:
 
 To regenerate the submission from these weights without training: `bash prepare.sh && bash predict.sh` (members missing under `members/`
 are exported from `weights/`; the regressor predictions and closure files are restored from `weights/` when `train.sh` has not run).
+
+### Second set: `weights_rebuild/` (Final submission #2)
+
+`weights_rebuild/` has the same layout and holds the parameters of the complete from-scratch rebuild of the submitted recipe on one A100 80GB PCIe (64 head members, the six direct regressors and the closure, all retrained by `train.sh`; public-test score 0.996456 vs 0.996446 for `weights/`). Final-phase submission #1 was produced with `weights/`, submission #2 with `weights_rebuild/`:
+```
+bash prepare_test.sh /path/to/diii_d_private_test_parquet_dir
+SUBMIT_NAME=diii_d_private_test MEMBERS_DIR=members_final WEIGHTS=weights bash predict.sh final_private            # submission #1
+SUBMIT_NAME=diii_d_private_test MEMBERS_DIR=members_rebuild WEIGHTS=weights_rebuild bash predict.sh final_rebuild  # submission #2 (fresh clone)
+```
+Run #2 in a fresh clone (or delete `results/candidates/20261004-080/closure` and `results/analysis/scalar_probe_160/pred_direct_vf60*_test.npy` first), because `predict.sh` reuses closure files and regressor predictions that already exist.

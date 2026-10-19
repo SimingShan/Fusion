@@ -3,6 +3,7 @@
 /members/
 /members_*/
 /weights_*/
+!/weights_rebuild/
 /results/candidates/
 /results/prep_logs/
 results/analysis/vessel_196/feats*/
