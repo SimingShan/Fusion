@@ -8,6 +8,8 @@ The starter-kit data fixes are applied. Features are computed from inputs only (
 time series within each shot, Thomson profiles, geometry, time metadata); `magnetics_dsep` is not used. No external data or pretrained
 models. **MAST:** this package contains no MAST model; no MAST labels or MAST training data were used anywhere.
 
+**Final-phase inputs (DIII-D).** The Final predictions use only the inputs of Hugging Face `ganatma/fusion-equilibrium-challenge-final`, config `diii_d_private_test` (879 shots), revision `965040c12b814f33c8e7209f6b1799932247e793` (per-file sha256 in `provenance/final_inputs_manifest.json`; download with `scripts/fetch_final_inputs.sh`), with the same starter-kit data fixes. No model is fitted to them; they are used only for prediction.
+
 CPU-only stages (declared, not GPU-budgeted): download, view building, POD bases, li/geometry stores, vessel/future feature extraction,
 scalar targets, blending and packaging. GPU stages: member training, direct axis regressors, closure network (see `train.sh`).
 
@@ -74,18 +76,8 @@ Compiled 2026-10-09 from Slurm accounting (`sacct -o SubmitLine`), manifests, ru
     `heads_217/make_heads_view.py` (bitwise equal to the training view).
 35. The submitted entry (24 HLVF + 40 HLAV, head targets from all 64) = candidate 20261011-118, public leaderboard 0.996423.
 
-## Gaps to close for a reproduction package
-1. Script the gated-NaN regressor file (step 23).
-2. Closure files hand-copied; basis512 needs the AE run; closure RNG depends on run order.
-3. Unused compute cannot be skipped by the current scripts (LVF 9.81 Muon stage ~2 GPU-h for 17 members; dev-fold exports).
-4. Two trainer snapshots (`muon128/src`, `scale150/src`), neither equal to root `scripts/train_pod.py`; run hashes cover only part of the sources; Muon reads env vars (defaults used).
-5. Recipe arguments are read from old artifacts (run.json, checkpoints' `run.arguments`, command.json) -> freeze them into explicit config files. `--dynamic-kappa-targets` passed but unused (weight 0).
-6. Absolute paths hard-coded in scripts, symlinks, manifests and basis.json (trainer checks manifest hashes) -> a fresh checkout must rebuild views with relative/rooted paths.
-7. `.venv` -> conda env `fwi` (Python 3.11.14) outside the repo; dataset revision pinning conditional; MAST payload from 085 not traced.
-8. Metadata errors (direct_vf60 manifest/export.json say 12 MLPs; actual 6 x 256x3).
-9. `blend_from_members` imports `requests` via `finish_ensemble_candidate` -> `codabench_submit`.
-10. Mixed GPUs -> not bit-reproducible (allowed; document).
-11. Budget: 17 x 47.9 + 26 x 32.1 min = 27.5 A100-h with the unused stage, ~25 h without, + ~0.9 h regressors/closure -> over 24 h; trim the member count.
+## Development-time gaps (status)
+A checklist written on 2026-10-09, before the package existed, listed eleven gaps (unscripted gated-regressor and closure steps, hard-coded paths, recipe arguments read from old artifacts, an over-budget member count, and similar). All are closed in this package: `prepare.sh`, `train.sh` and `predict.sh` script every step with paths relative to `FUSION_ROOT`, the recipe arguments are explicit in `train_members.py`/`configs/`, and the member count was cut to 64 (17.4 A100-hours measured). The package was verified end to end by complete from-scratch rebuilds on one A100 80GB PCIe (fresh clone, `prepare.sh`, `train.sh`, `predict.sh`); `weights_rebuild/` (Final submission 1003861) is the output of one of them. GPU training remains statistically, not bitwise, reproducible across runs.
 
 ## Packages (env `fwi`)
 torch 2.5.1+cu124, numpy 1.26.4, scipy 1.17.0, pyarrow 25.0.1, pandas 2.2.2 (lazy), scikit-image 0.26.0 (official scorer image pins 0.25.2), requests 2.32.5, huggingface_hub (download only). Local modules: `fusion`, `scripts`, starter (`local_score`, `derive`, `lcfs`, `contour`, `common`, `metrics`, `o_point`, `data_fixes`).

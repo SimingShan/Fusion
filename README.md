@@ -1,5 +1,7 @@
 # Fusion Equilibrium Challenge — Challenge 1 (DIII-D) reproduction package
 
+**Final submission 1003861:** see [`SUBMISSION_1003861.md`](SUBMISSION_1003861.md) (weights `weights_rebuild/`, Final-input fetch, exact commands, compute declaration).
+
 This package rebuilds our DIII-D entry from the public dataset: data preparation (CPU), model training from scratch (GPU, budgeted),
 and inference/packaging. The code is the code that trained the submitted members; only machine-specific paths were made relative.
 

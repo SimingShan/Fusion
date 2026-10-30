@@ -30,7 +30,7 @@ members, 200 for no-history members). Two families are trained on all labelled s
 The submission is the equal-weight mean of the 64 members. On frames with almost no usable Thomson data, only the history members
 are averaged, because the no-history members degrade there. The blend's POD modes 129-512 are filled by a closure network that maps the
 leading 64 coefficients to the higher modes (trained on training flux). Finally, the magnetic axis is moved inside the separatrix only
-(weight clip((psi - psi_b)/(psi_axis - psi_b), 0, 1)), vertically, 75% of the way toward the mean of the 64 members' head axis height and the
+(weight clip((psi - psi_b)/(psi_axis - psi_b), 0, 1)), vertically, all the way (strength 1.0; 0.75 in earlier entries) toward the mean of the 64 members' head axis height and the
 axis height predicted by six direct regressors trained on the same inputs; the separatrix is untouched and the shift is skipped on
 Thomson-poor frames.
 
@@ -79,9 +79,9 @@ vessel features -0.00032 D_LCFS and +0.00017 consistency; future features and th
 +0.00006 S; elongation adjustment +0.00005 S (+0.00002 more when localised); consistency-scalar heads +0.00004 S (history members +0.00002, no-history members +0.00002).
 
 ## Compute
-Training is about 15 A100-minutes per member when four members share one GPU. A complete from-scratch run of the 64-member entry
-(members, regressors and closure) took 16.7 hours on one A100 80GB PCIe, within the 24 GPU-hour limit (the heads add seven outputs to a
-1.2M-parameter network and no measurable time); a 43-member run took 8.9 H100-hours. CPU preparation takes about 4-6 h; the post-processing (closure, axis shift, per-member kappa of
+Training is about 15 A100-minutes per member when four members share one GPU. Training the submitted 64-member entry from scratch
+(members, regressors and closure) takes 17.4 GPU-hours on one A100 80GB PCIe (24 HLVF members 5.79 h, 40 HLAV members 10.61 h,
+regressors 0.27 h, closure 0.76 h; measured), within the 24 GPU-hour limit; DIII-D only, no GPU work for MAST, no GPU for inference. CPU preparation takes about 4-6 h; the post-processing (closure, axis shift, per-member kappa of
 all 64 members, elongation and li adjustments) about 5 h on 10 cores.
 
 ## What did not help
@@ -94,6 +94,10 @@ physics q95 from the predicted map's flux surfaces, a stronger li adjustment (0.
 warps of the separatrix corners toward member-mean X-point positions (the extraction amplifies edits near the X-point), learned per-frame combinations of the scalar estimates, and additional input families (Thomson dynamics, long-horizon future,
 current-diffusion simulations, fast fluctuation power). More members help only slowly (43 -> 86: +0.000008 public), because the
 members share their errors; 64 members fit the GPU budget with margin.
+
+## Data use
+Training uses only the labelled DIII-D shots of the public challenge dataset (`Sophelio/fusion-equilibrium-challenge`, pinned revision), with the starter-kit data fixes; Final predictions use only the inputs of the Final dataset (`ganatma/fusion-equilibrium-challenge-final`, `diii_d_private_test`). No external data, no pre-trained models, no test labels, no MAST data. The entry is DIII-D only.
+The Final submission (Codabench 1003861) uses the parameters of a complete from-scratch rebuild of this recipe on one A100 (`weights_rebuild/`).
 
 ## Use of the development leaderboard and of AI assistance
 
